@@ -1,0 +1,378 @@
+---
+title: "Dashboard"
+output: 
+  flexdashboard::flex_dashboard:
+    vertical_layout: scroll
+    theme: cosmo
+---
+```{r setup, include=FALSE}
+library(dplyr)
+library(flexdashboard)
+library(ggplot2)
+library(readr)
+library(highcharter)
+library(plotly)
+library(ggpubr)
+library(ggthemes)
+library(tidyr)
+library(lubridate)
+data <- read.csv(file="Exercise data.csv ",na.strings=c("£-",NULL))
+data=data.frame(data)
+data <-na.omit(data)
+data$Revenue <- sub(',','',data$Revenue)
+data$Revenue <- sub('£','',data$Revenue)
+data$Revenue <- gsub("-",NA,data$Revenue)
+#data$Revenue <- gsub(NaN,NULL,data$Revenue)
+data$Revenue <- sub('\\..*','',data$Revenue)
+data$Bounce.Rate <- as.numeric(sub("%", "",data$Bounce.Rate,fixed=TRUE))
+data <-data[order(as.Date(data$Date, format="%d/%m/%Y")),]
+data1 <-data[order(as.Date(data$Date, format="%d/%m/%Y")),]
+data$Date <- as.Date(data$Date, format = "%d/%m/%Y")
+data1$Date <- as.Date(data1$Date, format = "%d/%m/%Y")
+data1$Medium<-tolower(data$Medium)
+data1$Revenue[is.na(data1$Revenue)] <- 0
+data1$Revenue<-as.numeric(data1$Revenue)
+data1 <- data1 %>% mutate(day_of_the_week = strftime(data1$Date,'%A'))
+dd4<-data1%>%
+  group_by(Medium)%>%
+summarise(
+  trans=sum(Transactions),
+  sess=sum(Sessions),
+  rev=sum(as.numeric(Revenue)),
+  user=sum(Users)
+)
+Year=year(as.Date(data1$Date,"%d/%m/%Y"))
+Month=month(as.Date(data1$Date,"%d/%m/%Y"))
+data1$Year=Year
+data1$Month=Month
+dd<-data1%>%
+  group_by(Month,Year)%>%
+summarise(
+  rev=sum(as.numeric(Revenue)),
+  sess=sum(Sessions),
+  trans=sum(Transactions)
+)
+dd6<-data1%>%
+  group_by(day_of_the_week)%>%
+  summarise(
+  meantrans=mean(Transactions),
+  meanrev=sum(Revenue),
+  meansess=mean(Sessions),
+  meanuser=mean(Users),
+  n=n()
+
+
+)
+dd1<-data1%>%
+  group_by(Month,Year,Medium)%>%
+summarise(
+  rev=sum(as.numeric(Revenue)),
+  sess=sum(Sessions),
+  trans=sum(Transactions)
+)
+L<-c("cpc","organic","(none)","email")
+dd2<-subset(dd1,Medium %in% L)
+dd7<-data1%>%
+  group_by(Year)%>%
+  summarise(
+    sess=mean(Sessions),
+    rev=mean(Revenue),
+    sess1=sum(Sessions),
+    rev1=sum(Revenue)
+    
+    
+  )
+dd10<-data1%>%
+  group_by(Month)%>%
+summarise(
+  trans=sum(Transactions),
+  sess=sum(Sessions),
+  rev=sum(as.numeric(Revenue)),
+  user=sum(Users)
+)
+
+
+
+
+```
+ Medium Layout 1 {data-orientation=rows data-icon="fa-bar-chart"}
+=====================================
+## Row 1 {data-height=110}
+
+### Average Website Users
+
+```{r}
+valueBox(999, icon = "fa fa-user", color="rgb(100,100,100)")
+```
+
+### Average Website Revenue
+
+```{r}
+valueBox("13784.32", icon = "fa fa-money", color="rgb(200,100,100)")
+```
+
+### Average Website Transaction
+
+```{r}
+valueBox("5.760153", icon = "fa fa-exchange",color="rgb(26,110,204)")
+```
+
+## Row 2 
+### Relation of Sessions to Transactions
+
+
+```{r,warning=FALSE}
+gg1<- ggplot(data1,
+    aes(                  
+      x = Sessions,
+      y = Transactions,
+      color = Medium
+    )
+  ) +
+  geom_point(alpha = 5/7)+  theme_minimal(base_family = "Helvetica Neue")+scale_x_continuous(name = " sessions", limits = c(0, NA)) +
+  scale_y_continuous(name = "Sales", limits = c(0, NA))
+ggplotly(gg1)
+```
+## Row 3  
+
+### Relation of Sessions to Revenue
+
+```{r}
+       
+ gg2<- ggplot(data1,
+    aes(                 
+      x = Sessions,
+      y = Revenue,
+      color = Medium
+    )
+  ) +
+  geom_point(alpha = 5/7)+  theme_minimal(base_family = "Helvetica Neue")+scale_x_continuous(name = " Sessions", limits = c(0, NA)) +
+  scale_y_continuous(name = "Revenue", limits = c(0, NA))
+ggplotly(gg2)
+
+```
+
+
+## Row 3 
+
+### Count Of The Various Mediums
+
+```{r}
+gg3<-ggplot(data1, aes(Medium)) +
+  geom_bar(fill = "#0073C2FF") +
+  theme_pubclean()+theme(axis.text.x = element_text(angle=65, vjust=0.6))+scale_y_continuous(limits = c(0, NA))
+ggplotly(gg3)
+```
+
+
+Medium Layout 2 {data-orientation=rows data-icon="fa-bar-chart"}
+=====================================
+## Row 1 
+
+
+
+### Average Transactions for Cpc
+
+```{r}
+valueBox("22.07755", icon = "fa fa-credit-card", color="rgb(100,100,100)")
+```
+
+### Average Transactions for Organic
+
+```{r}
+valueBox("17.78011", icon = "fa fa-laptop", color="rgb(200,100,100)")
+```
+
+### Average Transactions for (none)
+```{r}
+valueBox("8.951642", icon = "fa fa-globe", color="rgb(200,100,100)")
+```
+
+
+
+##Row 2
+
+### Various Mediums Bounce Rate
+
+```{r}
+q1<-ggplot(data1, aes(x=reorder(Medium,Bounce.Rate), y=Bounce.Rate)) + 
+  geom_bar(stat="identity", width=.5, fill="green") + 
+  labs(title="Bounce Rate vs Medium",x="Medium") + 
+  theme(axis.text.x = element_text(angle=65, vjust=0.6))+ scale_y_continuous(name = "Bounce Rate", limits = c(0,NA))
+ ggplotly(q1) 
+```
+
+
+
+### Medium With Most Transactions 
+```{r}
+ctd <- ggplot(dd4, aes(x =reorder(Medium,trans), y = trans, colour = Medium)) + 
+  geom_point(size = 3) +
+  coord_flip() +
+  geom_text(aes(y = trans, label = trans, size = 12), hjust = -1) +
+  theme_igray() +
+  #scale_color_tableau("tableau20") +
+  theme(legend.position="none") +
+  labs(title="Medium With Most Transactions", x = "Sales", y = "Medium")+scale_y_continuous(name = "Medium", limits = c(0, 35000))
+ctd
+```
+
+
+
+## Row 3 
+
+### Medium Most Popular Among Users 
+
+```{r}
+ctd <- ggplot(dd4, aes(x =reorder(Medium,user), y = user, colour = Medium)) + 
+  geom_point(size = 3) +
+  coord_flip() +
+  geom_text(aes(y = user, label = user, size = 12), hjust = -1) +
+  theme_igray() +
+  #scale_color_tableau("tableau20") +
+  theme(legend.position="none") +
+  labs(title="  Most Popular Medium Among The Users", x = "Medium", y = "User")+scale_y_continuous(name = "User", limits = c(0, 35000000))
+ctd
+```   
+
+
+
+
+### Medium With Most Revenue
+
+```{r}
+ctr <- ggplot(dd4, aes(x = reorder(Medium, rev), y = rev, fill = Medium)) + 
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  geom_text(aes(y = rev, label = rev, size = 9000000000000000000000000), hjust = -0.1) +
+  theme_igray() +
+  #scale_color_tableau("tableau20") +
+  theme(legend.position="none") +
+  labs(title="Medium With Most Revenue", x = "Medium", y = "Revenue")+scale_y_continuous(name = "Revenue", limits = c(0, 70000000))
+ctr
+
+
+```
+
+Time Series Layout 1 {data-orientation=rows data-icon="fa-bar-chart"}
+=====================================
+
+
+
+
+Row {data-height=500}
+-------------------------------------
+    
+### Transaction over the 3 years
+    
+```{r}
+t1<-ggplot(data = dd, aes(x = as.numeric(Month), y = trans)) +
+    geom_line(stat='identity') + geom_point(size = 3.0,color="red") +
+    facet_wrap(~ Year, ncol = 1,scales = "free_x") +
+    scale_x_discrete( name="",limits=c(1,2,3,4,5,6,7,8,9,10,11,12))
+    #labs(title = "Time-Series years comparison", y="Transaction")+theme_economist()+theme_minimal(base_family = "Helvetica Neue")+theme(panel.spacing = unit(2, "lines"))+scale_y_discrete(name="Transaction")
+    ggplotly(t1)
+
+```
+
+Row
+-------------------------------------
+    
+###Days with most Revenue
+    
+```{r}
+ctr <- ggplot(dd6, aes(x = reorder(day_of_the_week, meanrev), y = meanrev, fill = day_of_the_week)) + 
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  geom_text(aes(y = meanrev, label = meanrev, size = 9000000000000000000000000), hjust = -0.1) +
+  theme_igray() +
+  #scale_color_tableau("tableau20") +
+  theme(legend.position="none") +
+  labs(title="Day which Gives Most Revenue", x = "Day", y = "Day")+scale_y_continuous(name = "Revenue", limits = c(0, 70000000))
+ggplotly(ctr)
+
+```
+    
+### Session Disribution over the days
+
+```{r,warning=FALSE}
+
+library(ggplot2)
+library(RColorBrewer)
+library(ggthemes)
+library(grid)
+fill <- "#4271AE"
+line <- "#1F3552"
+date <- ggplot(data1, aes(x = data1$day_of_the_week, y = data1$Sessions)) +
+        geom_boxplot(fill = fill, colour = line) +
+        scale_y_continuous(name = "Sessions",breaks = seq(0, 18000, 2000),
+                           limits=c(0, 18000))+
+        scale_x_discrete(name = "day of the week") +
+        ggtitle("Session Disribution over the days") +
+        theme_economist() +
+        theme(axis.line.x = element_line(size = 0.5, colour = "black"),
+              axis.line.y = element_line(size = 0.5, colour = "black"),
+              legend.position = "bottom", legend.direction = "horizontal",
+              legend.box = "horizontal",
+              legend.key.size = unit(1, "cm"),
+              plot.title = element_text(family="Tahoma"),
+              text = element_text(family = "Tahoma"),
+              axis.title = element_text(size = 12),
+              legend.text = element_text(size = 9),
+              legend.title=element_text(face = "bold", size = 9))
+ggplotly(date)
+
+```
+
+Time Series Layout 2 {data-orientation=rows data-icon="fa-bar-chart"}
+=====================================
+## Row 1 
+
+
+
+### Total Revenue In 2016
+
+```{r}
+valueBox("38,709,143", icon = "fa fa-credit-card", color="rgb(100,100,100)")
+```
+
+### Total Revenue In 2017
+
+```{r}
+valueBox("60,508,624", icon = "fa fa-laptop", color="rgb(200,100,100)")
+```
+
+### Total Revenue In 2018
+```{r}
+valueBox("48,770,707", icon = "fa fa-globe", color="rgb(200,100,100)")
+```
+
+##Row 2
+
+### Distribution of Transaction over years
+    
+```{r}
+t1<-ggplot(data = dd2, aes(x = as.numeric(Month), y = dd2$trans,group=Medium,color=Medium)) +
+    geom_line() + geom_point(size = 1.5) +
+    facet_wrap(~ Year, ncol = 1,scales = "free_x") +
+    scale_x_discrete( name="",limits=c(1,2,3,4,5,6,7,8,9,10,11,12))+theme(panel.spacing = unit(2, "lines"))+ labs(title="Distribution of Transaction over years", x = "Month",y="Sales")+theme(panel.spacing = unit(1, "lines"))+ theme(axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)))
+ggplotly(t1)
+```
+
+##Row 3
+
+### Popularity of the website over the three years
+
+```{r}
+t1<-ggplot(data = dd7, aes(x = Year, y = sess)) +
+    geom_line(stat='identity') + geom_point(size = 3.0,color="red")+ scale_x_discrete( name="",limits=c(2016,2017,2018))+theme_set(theme_bw())+ geom_smooth(method="lm", se=F)+labs(title = "Popularity of website " ,y = "Session")
+ggplotly(t1)
+
+```
+
+### Revenue earned for each month over the three years
+```{r}
+t2<-ggplot(data = dd10, aes(x = Month, y = rev))+
+    geom_line(stat='identity') + geom_point(size = 3.0,color="red")+ scale_x_discrete( name="",limits=c(1,2,3,4,5,6,7,8,9,10,11,12))+theme_set(theme_bw())+labs(title = "Revenue procured over the three months " ,y = "Revenue",x="Month")
+ggplotly(t2)
+```
